@@ -1,13 +1,11 @@
 clear;clc;format compact;tic;hold on
 
 % 生成数据范围
-Co_range = [0.85, 0.95];
-D_range = [0.85, 0.95];
+Co_range = [0.85, 0.95];  
+D_range = [0.85, 0.95];  
 T_range = [15, 25];
 C_cost_range1 = [2000, 3000];
 C_cost_range2 = [1000, 1500];
-% C_cost_range1 = [1000, 1500];
-% C_cost_range2 = [1000, 1500];
 Re_range = [0.9, 1];
 Av_range = [0.9, 1];
 Sta_range = [0.85, 0.95];
@@ -104,11 +102,11 @@ save('data.mat', 'Co_range', 'D_range', 'T_range', 'C_cost_range1', 'C_cost_rang
     'C_KMT','C_OMT','D1_KMT','D2_KMT', 'D3_KMT', 'D1_OMT', 'D2_OMT', 'D3_OMT', 'E1_KMT', 'E2_KMT', 'E3_KMT', 'E4_KMT', 'E1_OMT', 'E2_OMT', 'E3_OMT', 'E4_OMT', 'F_KMT', 'F_OMT');
 
 load data.mat
-%cap=100;
+%load data.case
 
 %% 参数设置
-NIND=20;        %种群大小
-NINDO=20;        %种群大小 
+NIND=50;        %种群大小
+NINDO=50;        %种群大小 
 MAXGEN=100;     %迭代次数
 Pc=0.9;         %交叉概率
 Pm=0.09;        %变异概率
@@ -151,8 +149,11 @@ for N=1:MAXGEN
         for i=1:NINDO
             allObj_EF_KMT=allObject_EF_KMT(ChromKMT,E1_KMT,E2_KMT,E3_KMT,E4_KMT,F_KMT,T_front,C_cost_front);
             
-            a = 250; % 示例值，请根据实际情况设置/时间约束
-            b = 16000; % 示例值，请根据实际情况设置/成本约束
+            a = 250; % 示例值,时间约束
+            b = 16000; % 示例值，成本约束
+            c = 0.1; % 示例值，可靠性约束
+            d = 0.1; % 示例值，可获得性约束 
+            e = 8; % 示例值，稳定性约束
 
             % 获取 allObj_EF_OMT 和 allObj_EF_KMT 第三列的值
             OMT_col_time = allObj_EF_OMT(:, 1);
@@ -161,12 +162,27 @@ for N=1:MAXGEN
             OMT_col_cost = allObj_EF_OMT(:, 2);
             KMT_col_cost = allObj_EF_KMT(:, 2);
             total_cost=OMT_col_cost+ KMT_col_cost;
+            OMT_col_rel = allObj_EF_OMT(:, 3);
+            KMT_col_rel = allObj_EF_KMT(:, 3);
+            total_rel=OMT_col_rel+ KMT_col_rel;
+            OMT_col_ave = allObj_EF_OMT(:, 4);
+            KMT_col_ave = allObj_EF_KMT(:, 4);
+            total_ave=OMT_col_ave+ KMT_col_ave;
             % 检查每行的值是否满足约束条件
              for i = 1:length(OMT_col_time)
                  if total_time(i) > a
                      allObj_EF_OMT(i, 5) = 0;
                  end
                  if total_cost(i) > b
+                 allObj_EF_OMT(i, 5) = 0;
+                 end
+                 if total_rel(i)<c
+                 allObj_EF_OMT(i, 5) = 0;
+                 end
+                 if total_ave(i) < d
+                 allObj_EF_OMT(i, 5) = 0;
+                 end
+                 if allObj_EF_OMT(i, 4) < e
                  allObj_EF_OMT(i, 5) = 0;
                  end
              end
@@ -290,7 +306,6 @@ for N=1:MAXGEN
         end 
         L_bestO(M) = recordGbestO;
         L_averageO(M,:) = mean(allObj_EF_OMT, 1);
-        fprintf('Iteration %d: recordGbestO = %f, tourGbestO = %s\n', i, recordGbestO, mat2str(tourGbestO));
     end
 
     
@@ -298,7 +313,8 @@ for N=1:MAXGEN
     for i=1:NIND
         allObj_CD_KMT=allObject_CD_KMT(ChromKMT,C_KMT,D1_KMT,D2_KMT,D3_KMT);  
         allObj_CD_OMT=allObject_CD_KMT(tourGbestO,C_OMT,D1_OMT,D2_OMT,D3_OMT);       
-        c = 10.6; % 示例值，请根据实际情况设置/时间约束
+        f = 2; % 示例值，请根据实际情况设置/时间约束
+        g = 2.5; % 示例值，请根据实际情况设置/时间约束
 
         % 获取 allObj_EF_OMT 和 allObj_EF_KMT 第三列的值
         OMT_col_Co = allObj_CD_OMT(:,1);
@@ -306,7 +322,10 @@ for N=1:MAXGEN
         total_Co=allObj_CD_KMT(:, 1)+allObj_CD_OMT(:,1);
         % 检查每行的值是否满足条件
         for i = 1:length(OMT_col_Co)
-            if total_Co(i)< c
+            if total_Co(i)< f
+                allObj_CD_OMT(i, 3) = 0;
+            end
+            if allObj_CD_OMT(i,2)< g
                 allObj_CD_OMT(i, 3) = 0;
             end
         end
@@ -418,7 +437,5 @@ for N=1:MAXGEN
     end
     
     L_best(N) = recordGbest;
-    L_average(N,:) = mean(allObj_CD_KMT, 1);
-    fprintf('Iteration %d: recordGbest = %f, tourGbest = %s\n', i, recordGbest, mat2str(tourGbest));
-    
+    L_average(N,:) = mean(allObj_CD_KMT, 1);  
 end  
